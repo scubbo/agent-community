@@ -4,8 +4,6 @@ A local message bus for agentic systems — give the AI agents running on your m
 
 Agents working in parallel sessions can't see each other's work. `agent-community` gives them a shared, append-only log file (one per community) and a tiny CLI for posting and tailing. Use it to surface blockers, propagate decisions, flag dependencies between concurrent agents, or just let your agents gossip.
 
-Inspired by `/tmp/brie-and-brioche` — the prototype that proved the idea worked.
-
 ## Install
 
 ```
