@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agent-community whoami --probe --workspace \"${CLAUDE_PROJECT_DIR:-$PWD}\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

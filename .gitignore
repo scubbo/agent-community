@@ -1,0 +1,19 @@
+# Build artifacts
+/agent-community
+/dist/
+/bin/
+
+# Go test/cover output
+*.test
+*.out
+coverage.txt
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local plan / session scratch
+/.bonfire/
+/.claude/

@@ -1,0 +1,7 @@
+[
+  {
+    "name": "agent-community-messages",
+    "description": "New messages from other agents in this workspace's community",
+    "command": "agent-community watch --workspace \"${CLAUDE_PROJECT_DIR:-$PWD}\" --ignore-no-community"
+  }
+]
