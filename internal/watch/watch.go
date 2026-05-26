@@ -3,7 +3,7 @@
 //
 // The prototype this replaces relied on `tail -f | grep` and hit a known
 // failure mode: tail block-buffers when its stdout is a pipe, so message N
-// surfaces only when message N+1 arrives. Since this package owns the entire
+// surfaced only when message N+1 arrived. Since this package owns the entire
 // read path -- file -> decode -> formatted output -> stdout -- we can flush
 // after every line and avoid the lag entirely. Do not introduce intermediate
 // pipes here.
@@ -11,6 +11,7 @@ package watch
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -74,6 +75,11 @@ func JSONLine(m *message.Message) string {
 //
 // Important: do not pipe `out` through any other writer that adds its own
 // buffering. The whole point of this package is to remove buffering lag.
+//
+// Reads bytes directly from os.File (not through bufio.Reader). bufio.Reader
+// caches io.EOF once it's encountered, so after the first read-to-end the
+// reader would not pick up subsequent appends. We maintain our own partial-
+// line buffer to handle split-writes correctly.
 func Run(ctx context.Context, opts Options, out io.Writer) error {
 	if opts.Format == nil {
 		opts.Format = PrettyLine
@@ -112,10 +118,8 @@ func Run(ctx context.Context, opts Options, out io.Writer) error {
 		return err
 	}
 
-	// bufio.NewWriter then explicit Flush after each line. This gives us a
-	// buffered Write for efficiency without the lag of leaving bytes pending.
 	bw := bufio.NewWriter(out)
-	br := bufio.NewReader(f)
+	tail := &tailer{file: f}
 
 	emit := func(line []byte) error {
 		m, err := message.Decode(line)
@@ -137,7 +141,7 @@ func Run(ctx context.Context, opts Options, out io.Writer) error {
 		return bw.Flush()
 	}
 
-	if err := drain(br, emit); err != nil {
+	if err := tail.drain(emit); err != nil {
 		return err
 	}
 
@@ -152,7 +156,7 @@ func Run(ctx context.Context, opts Options, out io.Writer) error {
 			if ev.Op&(fsnotify.Write|fsnotify.Create) == 0 {
 				continue
 			}
-			if err := drain(br, emit); err != nil {
+			if err := tail.drain(emit); err != nil {
 				return err
 			}
 		case err, ok := <-watcher.Errors:
@@ -164,23 +168,36 @@ func Run(ctx context.Context, opts Options, out io.Writer) error {
 	}
 }
 
-// drain reads complete lines from r and passes each to emit. Returns when no
-// more complete lines are available (i.e. ReadBytes returns io.EOF).
-//
-// On partial-line reads (no trailing newline), the bytes are buffered by the
-// bufio.Reader and will be combined with the next chunk.
-func drain(r *bufio.Reader, emit func([]byte) error) error {
+// tailer maintains the file handle and a buffer of bytes read but not yet
+// terminated by a newline. Each drain() call appends newly-read bytes,
+// emits any complete lines, and leaves the trailing partial bytes in
+// pending for the next call.
+type tailer struct {
+	file    *os.File
+	pending []byte
+}
+
+func (t *tailer) drain(emit func([]byte) error) error {
+	buf := make([]byte, 8192)
 	for {
-		line, err := r.ReadBytes('\n')
-		if len(line) > 0 && line[len(line)-1] == '\n' {
-			line = line[:len(line)-1]
-			if len(line) > 0 {
-				if emitErr := emit(line); emitErr != nil {
-					return emitErr
+		n, err := t.file.Read(buf)
+		if n > 0 {
+			t.pending = append(t.pending, buf[:n]...)
+			for {
+				i := bytes.IndexByte(t.pending, '\n')
+				if i < 0 {
+					break
+				}
+				line := t.pending[:i]
+				t.pending = t.pending[i+1:]
+				if len(line) > 0 {
+					if emitErr := emit(line); emitErr != nil {
+						return emitErr
+					}
 				}
 			}
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {
@@ -218,7 +235,7 @@ func seekToTimestamp(f *os.File, from time.Time) error {
 			}
 			offset += int64(len(line))
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			_, err := f.Seek(0, io.SeekEnd)
 			return err
 		}
