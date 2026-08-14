@@ -108,29 +108,34 @@ Keep track of spawned workers in your mental model:
 
 ## Monitoring Workers
 
-### Check the message bus
+**IMPORTANT: Monitor silently.** Do not visibly poll the message bus in the conversation flow. Jack should not see repeated `agent-community read` commands scrolling by.
 
-```bash
-# Read recent colony messages
-agent-community read --limit 20 --type progress
-agent-community read --limit 20 --type blocker
-agent-community read --min-urgency 3
+### Silent Monitoring Pattern
 
-# Watch for new messages (in background or periodically check)
-agent-community read --since <last-check-timestamp> --json
-```
+When you need to check on workers:
 
-### Attention Management
+1. **Don't poll visibly** - no `sleep 30 && agent-community read` loops in the main conversation
+2. **Check once when relevant** - when Jack asks about workers, or before reporting status
+3. **Only surface what matters** - urgency 3+ events get mentioned, 1-2 stay silent
 
-Maintain two queues:
+If you need continuous monitoring, tell Jack you're keeping an eye on things - don't show the mechanics.
 
-**Suppressed (urgency 1-2):**
+### When to Check
+
+- When Jack asks "how are the workers doing?"
+- Before starting a new task (quick check for blockers)
+- When a reasonable amount of time has passed since spawning
+
+### What to Surface
+
+**Silent (urgency 1-2):**
 - Heartbeats and progress updates
-- Review when Jack asks "how are the workers doing?"
+- Keep in your mental model, don't mention unless asked
 
-**Attention Queue (urgency 3+):**
-- Surface these to Jack at natural breakpoints
-- For urgency 5, interrupt immediately
+**Surface to Jack (urgency 3+):**
+- Questions, completions, PR ready, blockers, failures
+- Mention these proactively at natural breakpoints
+- For urgency 5 (blocker/failed), interrupt immediately
 
 ## Sending Steering Instructions
 
