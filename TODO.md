@@ -31,6 +31,14 @@ A community on a shared Dropbox / git-synced directory works today (XDG path can
 
 The current claim flow has a short race window between uniqueness check and identity write. Low stakes on a single machine, but flock or atomic rename would close it.
 
-## Richer message types
+## ~~Richer message types~~ (Done)
 
-JSONL allows it already — `type: "blocker" | "decision" | "gossip"` etc. Add convenience subcommands (`agent-community blocker "..."`) and let watch filter by type.
+Colony message support landed. The Message struct now has optional `type`, `urgency`, and `to` fields. The `post` command accepts `--type`, `--urgency`, and `--to` flags. The `read` command can filter by `--type`, `--min-urgency`, `--from`, and `--to`.
+
+Types: heartbeat, progress, question, pr_ready, blocker, completed, failed, steering
+
+Skills: `skills/colony-coordinator/` and `skills/colony-worker/` document the coordinator/worker pattern.
+
+## Watch with colony filtering
+
+Extend `agent-community watch` to filter by type/urgency like `read` does now. Useful for coordinators watching only high-urgency messages.
