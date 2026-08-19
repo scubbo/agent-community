@@ -131,6 +131,20 @@ func TestDiscussionCreateRequiresExplicitJSON(t *testing.T) {
 	}
 }
 
+func TestDiscussionCreateRequiresLocalManagePermission(t *testing.T) {
+	fixture := newDiscussionCLIFixture(t)
+	_, err := fixture.run(t,
+		"create",
+		"--participant", "interviewer=read,post",
+		"--participant", "goat=read,post,subscribe",
+		"--self", "interviewer",
+		"--json",
+	)
+	if err == nil || !strings.Contains(err.Error(), "manage") {
+		t.Fatalf("got %v want manage permission error", err)
+	}
+}
+
 func TestDiscussionPostReadAndEnd(t *testing.T) {
 	fixture := newDiscussionCLIFixture(t)
 	createdJSON, err := fixture.run(t,

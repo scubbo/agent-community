@@ -119,7 +119,7 @@ func NewName(discussionID string) (string, error) {
 	if len(discussionID) < 8 {
 		return "", fmt.Errorf("%w: invalid discussion id", ErrInvalidConnection)
 	}
-	return "interview-" + strings.ToLower(discussionID[:8]), nil
+	return "interview-" + strings.ToLower(discussionID[len(discussionID)-8:]), nil
 }
 
 func validate(connection Connection) error {

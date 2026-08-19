@@ -67,8 +67,8 @@ type Discussion struct {
 }
 
 type ParticipantInput struct {
-	ID          string
-	Permissions []Permission
+	ID          string       `json:"id"`
+	Permissions []Permission `json:"permissions"`
 }
 
 type CreateInput struct {
