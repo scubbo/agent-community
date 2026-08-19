@@ -81,6 +81,14 @@ func TestSaveAndLoadValidateConnection(t *testing.T) {
 	}
 }
 
+func TestSaveAllowsLoopbackHTTPPublicURLForDevelopment(t *testing.T) {
+	connection := validConnection()
+	connection.PublicURL = "http://127.0.0.1:8080"
+	if err := Save(t.TempDir(), connection); err != nil {
+		t.Fatalf("save loopback HTTP connection: %v", err)
+	}
+}
+
 func TestLoadFailsStrictlyOnUnknownFields(t *testing.T) {
 	stateRoot := t.TempDir()
 	path := Path(stateRoot, "test-community", "interview-01k3")
