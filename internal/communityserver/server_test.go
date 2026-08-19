@@ -370,6 +370,49 @@ func TestLongPollReturnsEmptyOnTimeout(t *testing.T) {
 	}
 }
 
+func TestLongPollDoesNotWaitPastDiscussionExpiry(t *testing.T) {
+	store, err := discussion.NewStore(t.TempDir(), discussion.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	created, capabilities, err := store.Create(discussion.CreateInput{
+		TTL: 60 * time.Millisecond,
+		Participants: []discussion.ParticipantInput{
+			{ID: "observer", Permissions: []discussion.Permission{discussion.PermissionRead}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create discussion: %v", err)
+	}
+	handler, err := New(store, Options{InstanceID: "expiry-test"})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	req, err := http.NewRequest(http.MethodGet, server.URL+"/v1/discussions/"+created.ID+"/messages?wait=2s", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+capabilities["observer"])
+	started := time.Now()
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
+		t.Errorf("long poll waited past discussion expiry: %s", elapsed)
+	}
+	var body struct {
+		Status string `json:"status"`
+	}
+	decodeResponse(t, response, &body)
+	if body.Status != "expired" {
+		t.Errorf("status: got %q want expired", body.Status)
+	}
+}
+
 func TestLongPollHonorsCancellation(t *testing.T) {
 	fixture := newServerFixture(t)
 	defer fixture.close()
@@ -457,6 +500,12 @@ func TestResponsesAreJSONAndDisableSniffing(t *testing.T) {
 	}
 	if got := response.Header.Get("X-Content-Type-Options"); got != "nosniff" {
 		t.Errorf("x-content-type-options: got %q want nosniff", got)
+	}
+
+	authenticated := fixture.request(t, http.MethodGet, "/v1/discussions/"+fixture.discussionID, "goat", "")
+	defer authenticated.Body.Close()
+	if got := authenticated.Header.Get("Cache-Control"); got != "no-store" {
+		t.Errorf("cache-control: got %q want no-store", got)
 	}
 }
 

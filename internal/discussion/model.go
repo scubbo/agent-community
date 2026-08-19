@@ -52,6 +52,11 @@ type Participant struct {
 	ID string `json:"id"`
 }
 
+type AuthenticatedParticipant struct {
+	ID          string       `json:"id"`
+	Permissions []Permission `json:"permissions"`
+}
+
 type Discussion struct {
 	ID           string        `json:"id"`
 	Status       Status        `json:"status"`

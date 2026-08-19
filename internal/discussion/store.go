@@ -214,6 +214,32 @@ func (s *Store) Read(discussionID, token string, opts ReadOptions) ([]Message, *
 	return filtered, publicDiscussion(*record, len(messages)), nil
 }
 
+func (s *Store) Get(discussionID, token string) (*Discussion, *AuthenticatedParticipant, error) {
+	lock := s.discussionLock(discussionID)
+	lock.Lock()
+	defer lock.Unlock()
+
+	record, participant, err := s.authorize(discussionID, token)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !hasPermission(participant.Capability, PermissionRead) {
+		return nil, nil, ErrForbidden
+	}
+	if err := s.refreshStatus(record); err != nil {
+		return nil, nil, err
+	}
+	messages, err := s.readMessages(*record)
+	if err != nil {
+		return nil, nil, err
+	}
+	self := &AuthenticatedParticipant{
+		ID:          participant.ID,
+		Permissions: append([]Permission(nil), participant.Capability.Permissions...),
+	}
+	return publicDiscussion(*record, len(messages)), self, nil
+}
+
 func (s *Store) End(discussionID, token string) (*Discussion, error) {
 	lock := s.discussionLock(discussionID)
 	lock.Lock()
