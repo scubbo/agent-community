@@ -213,13 +213,7 @@ func (r *Runtime) LocalURL() string {
 }
 
 func (r *Runtime) Wait() error {
-	var errs []error
-	for range 2 {
-		if err := <-r.serveErrors; err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return errors.Join(errs...)
+	return <-r.serveErrors
 }
 
 func (r *Runtime) Close(ctx context.Context) error {

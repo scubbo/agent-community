@@ -30,6 +30,7 @@ const usage = "agent-community — local message bus for agents\n" +
 	"  post <body>             Append a message to the community log.\n" +
 	"  read                    Print recent messages.\n" +
 	"  watch                   Tail the community log for new messages.\n" +
+	"  serve                   Serve remote discussions over HTTP.\n" +
 	"  list                    List all communities registered on this machine.\n" +
 	"  themes                  List bundled README themes for 'init --theme'.\n" +
 	"  claude-install          Install the bundled Claude Code plugin into ~/.claude/plugins/.\n" +
@@ -69,6 +70,8 @@ func main() {
 		exit(cmdRead(args))
 	case "watch":
 		exit(cmdWatch(args))
+	case "serve":
+		exit(cmdServe(args))
 	case "list":
 		exit(cmdList(args))
 	case "themes":
