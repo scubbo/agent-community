@@ -124,6 +124,13 @@ func TestPostDerivesAuthorFromCapabilityAndSupportsMultiline(t *testing.T) {
 	if message.Sequence != 1 {
 		t.Errorf("sequence: got %d want 1", message.Sequence)
 	}
+	encoded, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("marshal public message: %v", err)
+	}
+	if strings.Contains(string(encoded), "question-1") || strings.Contains(string(encoded), "idempotency_key") {
+		t.Errorf("public message exposes idempotency state: %s", encoded)
+	}
 }
 
 func TestPostRejectsUnauthorizedAndCrossDiscussionCapabilities(t *testing.T) {
