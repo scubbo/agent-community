@@ -19,13 +19,18 @@ func newRuntimeOptions(t *testing.T) RuntimeOptions {
 	t.Helper()
 	root := t.TempDir()
 	stateRoot := t.TempDir()
+	socketRoot, err := os.MkdirTemp("/tmp", "agent-community-")
+	if err != nil {
+		t.Fatalf("create short socket root: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(socketRoot) })
 	return RuntimeOptions{
 		CommunityName: "test-community",
 		CommunityRoot: root,
 		StateRoot:     stateRoot,
 		ListenAddress: "127.0.0.1:0",
 		PublicURL:     "https://community.example",
-		SocketPath:    filepath.Join(stateRoot, "control", "community.sock"),
+		SocketPath:    filepath.Join(socketRoot, "community.sock"),
 	}
 }
 
@@ -140,7 +145,7 @@ func TestRuntimeRejectsSecondWriter(t *testing.T) {
 
 	secondOpts := opts
 	secondOpts.ListenAddress = "127.0.0.1:0"
-	secondOpts.SocketPath = filepath.Join(opts.StateRoot, "control", "second.sock")
+	secondOpts.SocketPath = filepath.Join(filepath.Dir(opts.SocketPath), "second.sock")
 	second, err := Start(secondOpts)
 	if second != nil {
 		_ = second.Close(context.Background())
@@ -166,6 +171,27 @@ func TestRuntimeCloseRemovesRegistrationAndSocket(t *testing.T) {
 	}
 	if err := runtime.Close(context.Background()); err != nil {
 		t.Fatalf("second close: %v", err)
+	}
+}
+
+func TestRuntimeWaitReturnsAfterClose(t *testing.T) {
+	opts := newRuntimeOptions(t)
+	runtime, err := Start(opts)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	waited := make(chan error, 1)
+	go func() { waited <- runtime.Wait() }()
+	if err := runtime.Close(context.Background()); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	select {
+	case err := <-waited:
+		if err != nil {
+			t.Fatalf("wait: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("wait did not return after close")
 	}
 }
 
@@ -226,6 +252,18 @@ func TestRuntimeValidatesPublicURL(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestRuntimeRejectsOverlongSocketPath(t *testing.T) {
+	opts := newRuntimeOptions(t)
+	opts.SocketPath = filepath.Join(t.TempDir(), strings.Repeat("x", 120), "community.sock")
+	runtime, err := Start(opts)
+	if runtime != nil {
+		_ = runtime.Close(context.Background())
+	}
+	if err == nil || !strings.Contains(err.Error(), "control socket path") {
+		t.Fatalf("got %v want actionable control socket path error", err)
 	}
 }
 
