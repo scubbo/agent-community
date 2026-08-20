@@ -8,4 +8,7 @@ require (
 	github.com/oklog/ulid/v2 v2.1.1
 )
 
-require golang.org/x/sys v0.13.0 // indirect
+require (
+	github.com/modelcontextprotocol/go-sdk v1.7.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+)
