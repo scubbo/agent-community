@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -517,4 +518,101 @@ func TestNoPublicCreateRoute(t *testing.T) {
 		t.Fatalf("status: got %d want 404", response.StatusCode)
 	}
 	response.Body.Close()
+}
+
+func TestSubscriptionCreateAndDelete(t *testing.T) {
+	store, err := discussion.NewStore(t.TempDir(), discussion.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	created, capabilities, err := store.Create(discussion.CreateInput{
+		TTL: time.Minute,
+		Participants: []discussion.ParticipantInput{
+			{ID: "goat", Permissions: []discussion.Permission{discussion.PermissionRead, discussion.PermissionSubscribe}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create discussion: %v", err)
+	}
+	handler, err := New(store, Options{
+		InstanceID: "subscription-test",
+		Resolver:   staticResolver{"farm.example": {{IP: net.ParseIP("8.8.8.8")}}},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	target := server.URL + "/v1/discussions/" + created.ID + "/subscriptions"
+	body := `{"callback_url":"https://farm.example/events","signing_secret":"secret-32-bytes-minimum-1234567890","events":["message.created","discussion.ended"],"ignore_self":true}`
+	req, _ := http.NewRequest(http.MethodPost, target, strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+capabilities["goat"])
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("subscribe request: %v", err)
+	}
+	if response.StatusCode != http.StatusCreated {
+		data, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		t.Fatalf("subscribe status: got %d want 201 body=%s", response.StatusCode, data)
+	}
+	var result struct {
+		Subscription discussion.Subscription `json:"subscription"`
+	}
+	decodeResponse(t, response, &result)
+	if result.Subscription.ID == "" || result.Subscription.ParticipantID != "goat" {
+		t.Errorf("unexpected subscription: %#v", result.Subscription)
+	}
+	encoded, _ := json.Marshal(result)
+	if strings.Contains(string(encoded), "secret-32") || strings.Contains(string(encoded), "callback_url") {
+		t.Errorf("subscription response exposes endpoint secret: %s", encoded)
+	}
+
+	deleteReq, _ := http.NewRequest(http.MethodDelete, target+"/"+result.Subscription.ID, nil)
+	deleteReq.Header.Set("Authorization", "Bearer "+capabilities["goat"])
+	deleted, err := http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatalf("unsubscribe request: %v", err)
+	}
+	defer deleted.Body.Close()
+	if deleted.StatusCode != http.StatusOK {
+		t.Fatalf("unsubscribe status: got %d want 200", deleted.StatusCode)
+	}
+}
+
+func TestSubscriptionRejectsUnsafeCallbackBeforePersistence(t *testing.T) {
+	store, err := discussion.NewStore(t.TempDir(), discussion.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	created, capabilities, err := store.Create(discussion.CreateInput{
+		TTL:          time.Minute,
+		Participants: []discussion.ParticipantInput{{ID: "goat", Permissions: []discussion.Permission{discussion.PermissionSubscribe}}},
+	})
+	if err != nil {
+		t.Fatalf("create discussion: %v", err)
+	}
+	handler, err := New(store, Options{InstanceID: "unsafe-test", Resolver: staticResolver{"private.example": {{IP: net.ParseIP("10.0.0.1")}}}})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	req, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/discussions/"+created.ID+"/subscriptions", strings.NewReader(`{"callback_url":"https://private.example/events","signing_secret":"secret-32-bytes-minimum-1234567890","events":["message.created"]}`))
+	req.Header.Set("Authorization", "Bearer "+capabilities["goat"])
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status: got %d want 400", response.StatusCode)
+	}
+	var result struct {
+		Error string `json:"error"`
+	}
+	decodeResponse(t, response, &result)
+	if result.Error != "unsafe_callback_url" {
+		t.Errorf("error: got %q want unsafe_callback_url", result.Error)
+	}
 }
