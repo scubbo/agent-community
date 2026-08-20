@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -31,7 +30,7 @@ func (r staticResolver) LookupIPAddr(_ context.Context, host string) ([]net.IPAd
 }
 
 func TestValidateWebhookURLRejectsUnsafeDestinations(t *testing.T) {
-	public := net.IPAddr{IP: net.ParseIP("203.0.113.10")}
+	public := net.IPAddr{IP: net.ParseIP("8.8.8.8")}
 	private := net.IPAddr{IP: net.ParseIP("10.0.0.1")}
 	resolver := staticResolver{
 		"public.example":  {public},
@@ -68,7 +67,7 @@ func TestValidateWebhookURLRejectsUnsafeDestinations(t *testing.T) {
 }
 
 func TestWebhookDeliverySignsExactBodyAndCompletes(t *testing.T) {
-	store, err := discussion.NewStore(t.TempDir(), discussion.StoreOptions{})
+	store, err := discussion.NewStore(t.TempDir(), discussion.StoreOptions{Now: func() time.Time { return webhookTestNow }})
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
@@ -106,8 +105,7 @@ func TestWebhookDeliverySignsExactBodyAndCompletes(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer callback.Close()
-	host, _, _ := net.SplitHostPort(strings.TrimPrefix(callback.URL, "https://"))
-	resolver := staticResolver{host: {{IP: net.ParseIP("203.0.113.10")}}}
+	resolver := exposeTestServerAsPublic(t, callback)
 	if _, err := store.Subscribe(created.ID, capabilities["goat"], discussion.SubscribeInput{
 		CallbackURL: callback.URL, SigningSecret: secret, Events: []discussion.EventType{discussion.EventMessageCreated},
 	}); err != nil {
@@ -170,9 +168,8 @@ func TestWebhookDeliveryMarksTerminalClientErrorComplete(t *testing.T) {
 func TestWebhookDeliveryRevalidatesDNSBeforeRequest(t *testing.T) {
 	store, _, callback, _ := seededWebhookDelivery(t, http.StatusNoContent)
 	defer callback.Close()
-	host, _, _ := net.SplitHostPort(strings.TrimPrefix(callback.URL, "https://"))
 	worker := NewWebhookWorker(store, WebhookWorkerOptions{
-		Resolver: staticResolver{host: {{IP: net.ParseIP("10.0.0.1")}}},
+		Resolver: staticResolver{"callback.example": {{IP: net.ParseIP("10.0.0.1")}}},
 		Client:   callback.Client(), Now: func() time.Time { return webhookTestNow },
 	})
 	if _, err := worker.DeliverDue(context.Background(), 1); err != nil {
@@ -206,8 +203,7 @@ func seededWebhookDelivery(t *testing.T, status int) (*discussion.Store, discuss
 		}
 		w.WriteHeader(status)
 	}))
-	host, _, _ := net.SplitHostPort(strings.TrimPrefix(callback.URL, "https://"))
-	resolver := staticResolver{host: {{IP: net.ParseIP("203.0.113.10")}}}
+	resolver := exposeTestServerAsPublic(t, callback)
 	if _, err := store.Subscribe(created.ID, capabilities["goat"], discussion.SubscribeInput{
 		CallbackURL: callback.URL, SigningSecret: "secret-32-bytes-minimum-1234567890", Events: []discussion.EventType{discussion.EventMessageCreated},
 	}); err != nil {
@@ -221,4 +217,28 @@ func seededWebhookDelivery(t *testing.T, status int) (*discussion.Store, discuss
 		t.Fatalf("due: %#v err=%v", due, err)
 	}
 	return store, due[0], callback, resolver
+}
+
+func exposeTestServerAsPublic(t *testing.T, server *httptest.Server) staticResolver {
+	t.Helper()
+	actualAddress := server.Listener.Addr().String()
+	_, port, err := net.SplitHostPort(actualAddress)
+	if err != nil {
+		t.Fatalf("split test server address: %v", err)
+	}
+	client := server.Client()
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("unexpected test server transport %T", client.Transport)
+	}
+	transport = transport.Clone()
+	transport.TLSClientConfig = transport.TLSClientConfig.Clone()
+	transport.TLSClientConfig.InsecureSkipVerify = true // Test transport still uses TLS; hostname is synthetic.
+	transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		var dialer net.Dialer
+		return dialer.DialContext(ctx, network, actualAddress)
+	}
+	client.Transport = transport
+	server.URL = "https://callback.example:" + port
+	return staticResolver{"callback.example": {{IP: net.ParseIP("8.8.8.8")}}}
 }

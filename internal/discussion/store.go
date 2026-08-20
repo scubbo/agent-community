@@ -106,6 +106,12 @@ func (s *Store) Create(input CreateInput) (*Discussion, map[string]string, error
 	if err := writeEmptyFile(filepath.Join(dir, MessagesFile)); err != nil {
 		return nil, nil, fmt.Errorf("create discussion messages: %w", err)
 	}
+	if err := writeJSONAtomic(filepath.Join(dir, SubscriptionsFile), []subscriptionRecord{}); err != nil {
+		return nil, nil, fmt.Errorf("create discussion subscriptions: %w", err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, OutboxDir), 0o700); err != nil {
+		return nil, nil, fmt.Errorf("create discussion outbox: %w", err)
+	}
 	if err := syncDirectory(dir); err != nil {
 		return nil, nil, fmt.Errorf("sync discussion directory: %w", err)
 	}
@@ -150,6 +156,9 @@ func (s *Store) Post(discussionID, token string, input PostInput) (*Message, boo
 			return nil, false, ErrIdempotencyConflict
 		}
 		copy := message.Message
+		if err := s.reconcileMessageDeliveries(*record, copy); err != nil {
+			return nil, false, err
+		}
 		return &copy, true, nil
 	}
 	if len(messages) >= MaxMessages {
@@ -175,6 +184,9 @@ func (s *Store) Post(discussionID, token string, input PostInput) (*Message, boo
 	}
 	if err := appendMessage(filepath.Join(s.discussionDir(record.ID), MessagesFile), messageRecord{Message: message, IdempotencyKey: input.IdempotencyKey}); err != nil {
 		return nil, false, fmt.Errorf("append discussion message: %w", err)
+	}
+	if err := s.reconcileMessageDeliveries(*record, message); err != nil {
+		return nil, false, fmt.Errorf("create message deliveries: %w", err)
 	}
 	return &message, false, nil
 }
@@ -260,6 +272,9 @@ func (s *Store) End(discussionID, token string) (*Discussion, error) {
 		if err := s.writeRecord(*record); err != nil {
 			return nil, err
 		}
+		if err := s.reconcileEndDeliveries(*record, EndReasonExplicit); err != nil {
+			return nil, err
+		}
 	}
 	messages, err := s.readMessages(*record)
 	if err != nil {
@@ -294,7 +309,10 @@ func (s *Store) refreshStatus(record *discussionRecord) error {
 		return nil
 	}
 	record.Status = StatusExpired
-	return s.writeRecord(*record)
+	if err := s.writeRecord(*record); err != nil {
+		return err
+	}
+	return s.reconcileEndDeliveries(*record, EndReasonExpired)
 }
 
 func (s *Store) readRecord(discussionID string) (*discussionRecord, error) {

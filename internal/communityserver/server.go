@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,11 +23,13 @@ const (
 
 type Options struct {
 	InstanceID string
+	Resolver   IPResolver
 }
 
 type Server struct {
 	store      *discussion.Store
 	instanceID string
+	resolver   IPResolver
 
 	notificationsMu sync.Mutex
 	notifications   map[string]chan struct{}
@@ -39,9 +42,14 @@ func New(store *discussion.Store, opts Options) (*Server, error) {
 	if opts.InstanceID == "" {
 		return nil, errors.New("instance id is required")
 	}
+	resolver := opts.Resolver
+	if resolver == nil {
+		resolver = net.DefaultResolver
+	}
 	return &Server{
 		store:         store,
 		instanceID:    opts.InstanceID,
+		resolver:      resolver,
 		notifications: make(map[string]chan struct{}),
 	}, nil
 }
@@ -59,7 +67,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discussionID, resource, ok := parseDiscussionPath(r.URL.Path)
+	discussionID, resource, childID, ok := parseDiscussionPath(r.URL.Path)
 	if !ok {
 		s.writeError(w, http.StatusNotFound, "not_found")
 		return
@@ -76,9 +84,57 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.handleDiscussion(w, r, discussionID, token)
 	case "messages":
 		s.handleMessages(w, r, discussionID, token)
+	case "subscriptions":
+		s.handleSubscriptions(w, r, discussionID, childID, token)
 	default:
 		s.writeError(w, http.StatusNotFound, "not_found")
 	}
+}
+
+func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request, discussionID, subscriptionID, token string) {
+	if subscriptionID == "" {
+		if r.Method != http.MethodPost {
+			s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed")
+			return
+		}
+		data, err := readBoundedBody(w, r)
+		if err != nil {
+			s.writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		var input struct {
+			CallbackURL   string                 `json:"callback_url"`
+			SigningSecret string                 `json:"signing_secret"`
+			Events        []discussion.EventType `json:"events"`
+			IgnoreSelf    bool                   `json:"ignore_self"`
+		}
+		if err := decodeStrict(data, &input); err != nil {
+			s.writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if err := ValidateWebhookURL(r.Context(), input.CallbackURL, s.resolver); err != nil {
+			s.writeError(w, http.StatusBadRequest, "unsafe_callback_url")
+			return
+		}
+		subscription, err := s.store.Subscribe(discussionID, token, discussion.SubscribeInput{
+			CallbackURL: input.CallbackURL, SigningSecret: input.SigningSecret, Events: input.Events, IgnoreSelf: input.IgnoreSelf,
+		})
+		if err != nil {
+			s.writeStoreError(w, err)
+			return
+		}
+		s.writeJSON(w, http.StatusCreated, map[string]any{"ok": true, "subscription": subscription})
+		return
+	}
+	if r.Method != http.MethodDelete {
+		s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed")
+		return
+	}
+	if err := s.store.Unsubscribe(discussionID, token, subscriptionID); err != nil {
+		s.writeStoreError(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleDiscussion(w http.ResponseWriter, r *http.Request, discussionID, token string) {
@@ -259,6 +315,10 @@ func (s *Server) writeStoreError(w http.ResponseWriter, err error) {
 		s.writeError(w, http.StatusConflict, "discussion_expired")
 	case errors.Is(err, discussion.ErrMessageLimit):
 		s.writeError(w, http.StatusConflict, "message_limit_reached")
+	case errors.Is(err, discussion.ErrSubscriptionExists):
+		s.writeError(w, http.StatusConflict, "subscription_exists")
+	case errors.Is(err, discussion.ErrSubscriptionNotFound):
+		s.writeError(w, http.StatusNotFound, "subscription_not_found")
 	default:
 		s.writeError(w, http.StatusInternalServerError, "internal_error")
 	}
@@ -273,23 +333,26 @@ func (s *Server) writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func parseDiscussionPath(path string) (string, string, bool) {
+func parseDiscussionPath(path string) (string, string, string, bool) {
 	const prefix = "/v1/discussions/"
 	if !strings.HasPrefix(path, prefix) {
-		return "", "", false
+		return "", "", "", false
 	}
 	remainder := strings.TrimPrefix(path, prefix)
 	if remainder == "" || strings.HasSuffix(remainder, "/") {
-		return "", "", false
+		return "", "", "", false
 	}
 	parts := strings.Split(remainder, "/")
 	if len(parts) == 1 {
-		return parts[0], "", true
+		return parts[0], "", "", true
 	}
 	if len(parts) == 2 {
-		return parts[0], parts[1], true
+		return parts[0], parts[1], "", true
 	}
-	return "", "", false
+	if len(parts) == 3 && parts[1] == "subscriptions" {
+		return parts[0], parts[1], parts[2], true
+	}
+	return "", "", "", false
 }
 
 func bearerToken(header string) (string, bool) {

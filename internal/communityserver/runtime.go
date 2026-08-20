@@ -71,6 +71,8 @@ type Runtime struct {
 	publicServer     *http.Server
 	controlServer    *http.Server
 	serveErrors      chan error
+	workerCancel     context.CancelFunc
+	workerDone       chan struct{}
 
 	closeOnce sync.Once
 	closeErr  error
@@ -197,7 +199,12 @@ func Start(opts RuntimeOptions) (*Runtime, error) {
 		publicServer:     publicServer,
 		controlServer:    controlServer,
 		serveErrors:      make(chan error, 2),
+		workerDone:       make(chan struct{}),
 	}
+	workerContext, workerCancel := context.WithCancel(context.Background())
+	runtime.workerCancel = workerCancel
+	worker := NewWebhookWorker(store, WebhookWorkerOptions{})
+	go runtime.runDeliveryWorker(workerContext, worker)
 	go runtime.serve(publicServer, tcpListener, "public")
 	go runtime.serve(controlServer, controlListener, "control")
 
@@ -219,6 +226,12 @@ func (r *Runtime) Wait() error {
 func (r *Runtime) Close(ctx context.Context) error {
 	r.closeOnce.Do(func() {
 		var errs []error
+		r.workerCancel()
+		select {
+		case <-r.workerDone:
+		case <-ctx.Done():
+			errs = append(errs, fmt.Errorf("stop webhook worker: %w", ctx.Err()))
+		}
 		if err := r.publicServer.Shutdown(ctx); err != nil {
 			errs = append(errs, fmt.Errorf("shutdown public server: %w", err))
 		}
@@ -237,6 +250,20 @@ func (r *Runtime) Close(ctx context.Context) error {
 		r.closeErr = errors.Join(errs...)
 	})
 	return r.closeErr
+}
+
+func (r *Runtime) runDeliveryWorker(ctx context.Context, worker *WebhookWorker) {
+	defer close(r.workerDone)
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		_, _ = worker.DeliverDue(ctx, 100)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 func RegistrationPath(stateRoot, communityName string) string {

@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	DiscussionsDir = "discussions"
-	DiscussionFile = "discussion.json"
-	MessagesFile   = "messages.jsonl"
+	DiscussionsDir    = "discussions"
+	DiscussionFile    = "discussion.json"
+	MessagesFile      = "messages.jsonl"
+	SubscriptionsFile = "subscriptions.json"
+	OutboxDir         = "outbox"
 
 	MaxBodyBytes   = 64 * 1024
 	MaxMessages    = 1000
@@ -22,13 +24,15 @@ const (
 )
 
 var (
-	ErrUnauthorized        = errors.New("unauthorized")
-	ErrForbidden           = errors.New("forbidden")
-	ErrInvalidInput        = errors.New("invalid input")
-	ErrIdempotencyConflict = errors.New("idempotency conflict")
-	ErrDiscussionEnded     = errors.New("discussion ended")
-	ErrDiscussionExpired   = errors.New("discussion expired")
-	ErrMessageLimit        = errors.New("discussion message limit reached")
+	ErrUnauthorized         = errors.New("unauthorized")
+	ErrForbidden            = errors.New("forbidden")
+	ErrInvalidInput         = errors.New("invalid input")
+	ErrIdempotencyConflict  = errors.New("idempotency conflict")
+	ErrDiscussionEnded      = errors.New("discussion ended")
+	ErrDiscussionExpired    = errors.New("discussion expired")
+	ErrMessageLimit         = errors.New("discussion message limit reached")
+	ErrSubscriptionExists   = errors.New("active subscription already exists")
+	ErrSubscriptionNotFound = errors.New("subscription not found")
 )
 
 type Status string
@@ -95,4 +99,56 @@ type PostInput struct {
 type ReadOptions struct {
 	AfterSequence int
 	Limit         int
+}
+
+type EventType string
+
+const (
+	EventMessageCreated  EventType = "message.created"
+	EventDiscussionEnded EventType = "discussion.ended"
+)
+
+type EndReason string
+
+const (
+	EndReasonExplicit EndReason = "explicit"
+	EndReasonExpired  EndReason = "expired"
+)
+
+type Subscription struct {
+	ID            string      `json:"id"`
+	ParticipantID string      `json:"participant_id"`
+	Events        []EventType `json:"events"`
+	IgnoreSelf    bool        `json:"ignore_self"`
+	CreatedAt     time.Time   `json:"created_at"`
+}
+
+type SubscribeInput struct {
+	CallbackURL   string
+	SigningSecret string
+	Events        []EventType
+	IgnoreSelf    bool
+}
+
+type DiscussionEnded struct {
+	Status Status    `json:"status"`
+	Reason EndReason `json:"reason"`
+}
+
+type Event struct {
+	Type         EventType        `json:"type"`
+	CreatedAt    time.Time        `json:"created_at"`
+	DiscussionID string           `json:"discussion_id"`
+	Message      *Message         `json:"message,omitempty"`
+	Ended        *DiscussionEnded `json:"ended,omitempty"`
+}
+
+type Delivery struct {
+	ID             string
+	SubscriptionID string
+	CallbackURL    string
+	SigningSecret  string
+	Event          Event
+	Attempts       int
+	NextAttemptAt  time.Time
 }
