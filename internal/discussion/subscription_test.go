@@ -144,6 +144,67 @@ func TestPostReplayReconcilesMissingOutbox(t *testing.T) {
 	}
 }
 
+func TestReconcileDeliveriesRepairsMissingOutboxWithoutPostReplay(t *testing.T) {
+	store, root := newTestStore(t)
+	discussion, capabilities := createTestDiscussion(t, store)
+	if _, err := store.Subscribe(discussion.ID, capabilities["goat"], SubscribeInput{
+		CallbackURL: "https://farm.example/events", SigningSecret: "secret-32-bytes-minimum-1234567890", Events: []EventType{EventMessageCreated, EventDiscussionEnded},
+	}); err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	if _, _, err := store.Post(discussion.ID, capabilities["interviewer"], PostInput{IdempotencyKey: "q1", Body: "why?"}); err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	if _, err := store.End(discussion.ID, capabilities["interviewer"]); err != nil {
+		t.Fatalf("end: %v", err)
+	}
+	outbox := filepath.Join(root, DiscussionsDir, discussion.ID, OutboxDir)
+	entries, err := os.ReadDir(outbox)
+	if err != nil {
+		t.Fatalf("read outbox: %v", err)
+	}
+	for _, entry := range entries {
+		if err := os.Remove(filepath.Join(outbox, entry.Name())); err != nil {
+			t.Fatalf("remove delivery: %v", err)
+		}
+	}
+
+	if err := store.ReconcileDeliveries(); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	due, err := store.ListDueDeliveries(testNow.Add(time.Second), 10)
+	if err != nil {
+		t.Fatalf("list due: %v", err)
+	}
+	if len(due) != 2 {
+		t.Fatalf("deliveries: got %d want message + end", len(due))
+	}
+}
+
+func TestExpireDueTransitionsAndCreatesEndDeliveryWithoutAccess(t *testing.T) {
+	current := testNow
+	store, _ := NewStore(t.TempDir(), StoreOptions{Now: func() time.Time { return current }})
+	discussion, capabilities := createTestDiscussion(t, store)
+	if _, err := store.Subscribe(discussion.ID, capabilities["goat"], SubscribeInput{
+		CallbackURL: "https://farm.example/events", SigningSecret: "secret-32-bytes-minimum-1234567890", Events: []EventType{EventDiscussionEnded},
+	}); err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	current = discussion.ExpiresAt.Add(time.Second)
+
+	expired, err := store.ExpireDue()
+	if err != nil {
+		t.Fatalf("expire due: %v", err)
+	}
+	if len(expired) != 1 || expired[0] != discussion.ID {
+		t.Fatalf("expired: got %v want [%s]", expired, discussion.ID)
+	}
+	due, err := store.ListDueDeliveries(current, 10)
+	if err != nil || len(due) != 1 || due[0].Event.Ended == nil || due[0].Event.Ended.Reason != EndReasonExpired {
+		t.Fatalf("expiry delivery: %#v err=%v", due, err)
+	}
+}
+
 func containsBytes(data, target []byte) bool {
 	for i := 0; i+len(target) <= len(data); i++ {
 		match := true

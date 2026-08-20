@@ -272,6 +272,8 @@ func (s *Store) End(discussionID, token string) (*Discussion, error) {
 		if err := s.writeRecord(*record); err != nil {
 			return nil, err
 		}
+	}
+	if record.Status == StatusEnded {
 		if err := s.reconcileEndDeliveries(*record, EndReasonExplicit); err != nil {
 			return nil, err
 		}

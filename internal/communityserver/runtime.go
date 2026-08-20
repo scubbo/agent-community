@@ -73,6 +73,8 @@ type Runtime struct {
 	serveErrors      chan error
 	workerCancel     context.CancelFunc
 	workerDone       chan struct{}
+	store            *discussion.Store
+	publicHandler    *Server
 
 	closeOnce sync.Once
 	closeErr  error
@@ -119,6 +121,9 @@ func Start(opts RuntimeOptions) (*Runtime, error) {
 	store, err := discussion.NewStore(communityRoot, discussion.StoreOptions{})
 	if err != nil {
 		return nil, err
+	}
+	if err := store.ReconcileDeliveries(); err != nil {
+		return nil, fmt.Errorf("reconcile discussion deliveries: %w", err)
 	}
 	instanceID, err := newRuntimeID()
 	if err != nil {
@@ -200,6 +205,8 @@ func Start(opts RuntimeOptions) (*Runtime, error) {
 		controlServer:    controlServer,
 		serveErrors:      make(chan error, 2),
 		workerDone:       make(chan struct{}),
+		store:            store,
+		publicHandler:    publicHandler,
 	}
 	workerContext, workerCancel := context.WithCancel(context.Background())
 	runtime.workerCancel = workerCancel
@@ -257,6 +264,11 @@ func (r *Runtime) runDeliveryWorker(ctx context.Context, worker *WebhookWorker) 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
+		if expired, err := r.store.ExpireDue(); err == nil {
+			for _, discussionID := range expired {
+				r.publicHandler.notify(discussionID)
+			}
+		}
 		_, _ = worker.DeliverDue(ctx, 100)
 		select {
 		case <-ctx.Done():
@@ -437,11 +449,18 @@ func releaseServeLock(file *os.File) error {
 
 func prepareControlSocket(socketPath string) error {
 	dir := filepath.Dir(socketPath)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("create control socket directory: %w", err)
-	}
-	if err := os.Chmod(dir, 0o700); err != nil {
-		return fmt.Errorf("secure control socket directory: %w", err)
+	info, err := os.Stat(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return fmt.Errorf("create control socket directory: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("inspect control socket directory: %w", err)
+	} else if !info.IsDir() || info.Mode().Perm() != 0o700 {
+		return fmt.Errorf(
+			"control socket directory must be a private mode-0700 directory: %s",
+			dir,
+		)
 	}
 	if err := os.Remove(socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove stale control socket: %w", err)

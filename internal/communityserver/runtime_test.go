@@ -267,6 +267,26 @@ func TestRuntimeRejectsOverlongSocketPath(t *testing.T) {
 	}
 }
 
+func TestRuntimeRejectsNonPrivateExistingSocketDirectory(t *testing.T) {
+	opts := newRuntimeOptions(t)
+	dir, err := os.MkdirTemp("/tmp", "agent-community-public-")
+	if err != nil {
+		t.Fatalf("mkdir temp: %v", err)
+	}
+	defer os.RemoveAll(dir)
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	opts.SocketPath = filepath.Join(dir, "community.sock")
+	runtime, err := Start(opts)
+	if runtime != nil {
+		_ = runtime.Close(context.Background())
+	}
+	if err == nil || !strings.Contains(err.Error(), "mode-0700") {
+		t.Fatalf("got %v want private-directory error", err)
+	}
+}
+
 func TestLoadRegistrationRejectsUnknownFields(t *testing.T) {
 	stateRoot := t.TempDir()
 	path := RegistrationPath(stateRoot, "test-community")

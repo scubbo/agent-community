@@ -183,6 +183,86 @@ func (s *Store) ListDueDeliveries(now time.Time, limit int) ([]Delivery, error) 
 	return due, nil
 }
 
+func (s *Store) ReconcileDeliveries() error {
+	root := filepath.Join(s.root, DiscussionsDir)
+	entries, err := os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		discussionID := entry.Name()
+		lock := s.discussionLock(discussionID)
+		lock.Lock()
+		record, readErr := s.readRecord(discussionID)
+		if readErr == nil {
+			messages, messagesErr := s.readMessages(*record)
+			if messagesErr != nil {
+				readErr = messagesErr
+			} else {
+				for _, message := range messages {
+					if err := s.reconcileMessageDeliveries(*record, message.Message); err != nil {
+						readErr = err
+						break
+					}
+				}
+			}
+			if readErr == nil && record.Status == StatusEnded {
+				readErr = s.reconcileEndDeliveries(*record, EndReasonExplicit)
+			}
+			if readErr == nil && record.Status == StatusExpired {
+				readErr = s.reconcileEndDeliveries(*record, EndReasonExpired)
+			}
+		}
+		lock.Unlock()
+		if readErr != nil {
+			return readErr
+		}
+	}
+	return nil
+}
+
+func (s *Store) ExpireDue() ([]string, error) {
+	root := filepath.Join(s.root, DiscussionsDir)
+	entries, err := os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var expired []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		discussionID := entry.Name()
+		lock := s.discussionLock(discussionID)
+		lock.Lock()
+		record, readErr := s.readRecord(discussionID)
+		if readErr == nil && record.Status == StatusActive && !s.now().UTC().Before(record.ExpiresAt) {
+			record.Status = StatusExpired
+			readErr = s.writeRecord(*record)
+			if readErr == nil {
+				readErr = s.reconcileEndDeliveries(*record, EndReasonExpired)
+			}
+			if readErr == nil {
+				expired = append(expired, discussionID)
+			}
+		}
+		lock.Unlock()
+		if readErr != nil {
+			return nil, readErr
+		}
+	}
+	return expired, nil
+}
+
 func (s *Store) RetryDelivery(deliveryID string, nextAttemptAt time.Time, lastError string) error {
 	return s.updateDelivery(deliveryID, func(record *deliveryRecord) {
 		record.Attempts++
