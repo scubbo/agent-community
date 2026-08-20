@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,10 +13,8 @@ import (
 
 	"github.com/jackjackson/agent-community/internal/community"
 	"github.com/jackjackson/agent-community/internal/communityclient"
-	"github.com/jackjackson/agent-community/internal/communityserver"
-	"github.com/jackjackson/agent-community/internal/connection"
 	"github.com/jackjackson/agent-community/internal/discussion"
-	"github.com/oklog/ulid/v2"
+	"github.com/jackjackson/agent-community/internal/discussionapp"
 )
 
 func cmdDiscussion(args []string) error {
@@ -100,66 +97,14 @@ func runDiscussionCreate(ctx context.Context, args []string, output io.Writer, s
 		return validationErr("--self participant %q must have manage permission", *self)
 	}
 
-	registration, err := communityserver.LoadRegistration(stateRoot, resolved.Name)
-	if err != nil {
-		return fmt.Errorf("load live server for community %q: %w; start `agent-community serve` first", resolved.Name, err)
-	}
-	participantInputs := participants.inputs()
-	created, err := communityserver.CreateThroughControl(ctx, registration, discussion.CreateInput{
-		TTL:          *ttl,
-		Participants: participantInputs,
+	service := &discussionapp.Service{StateRoot: stateRoot, CommunityName: resolved.Name}
+	created, err := service.Create(ctx, discussionapp.CreateInput{
+		TTL: *ttl, Participants: participants.inputs(), Self: *self, Name: *name,
 	})
 	if err != nil {
 		return err
 	}
-	connectionName := *name
-	if connectionName == "" {
-		connectionName, err = connection.NewName(created.Discussion.ID)
-		if err != nil {
-			return err
-		}
-	}
-	localCapability := created.Capabilities[*self]
-	localConnection := connection.Connection{
-		Name:          connectionName,
-		CommunityName: resolved.Name,
-		LocalURL:      registration.LocalURL,
-		PublicURL:     registration.PublicURL,
-		DiscussionID:  created.Discussion.ID,
-		ParticipantID: *self,
-		Capability:    localCapability,
-		ExpiresAt:     created.Discussion.ExpiresAt,
-	}
-	if err := connection.Save(stateRoot, localConnection); err != nil {
-		// The server accepted creation but local persistence failed. End through
-		// the in-memory self connection so the orphan cannot remain active.
-		_, _ = communityclient.New(nil).End(ctx, &localConnection)
-		return fmt.Errorf("save local connection: %w", err)
-	}
-
-	type invitation struct {
-		BaseURL          string    `json:"base_url"`
-		DiscussionID     string    `json:"discussion_id"`
-		ParticipantToken string    `json:"participant_token"`
-		ExpiresAt        time.Time `json:"expires_at"`
-	}
-	invitations := make(map[string]invitation, len(created.Capabilities)-1)
-	for participantID, capability := range created.Capabilities {
-		if participantID == *self {
-			continue
-		}
-		invitations[participantID] = invitation{
-			BaseURL:          registration.PublicURL,
-			DiscussionID:     created.Discussion.ID,
-			ParticipantToken: capability,
-			ExpiresAt:        created.Discussion.ExpiresAt,
-		}
-	}
-	return writeCommandJSON(output, map[string]any{
-		"connection":  connectionName,
-		"discussion":  created.Discussion,
-		"invitations": invitations,
-	})
+	return writeCommandJSON(output, created)
 }
 
 func runDiscussionPost(ctx context.Context, args []string, output io.Writer, stateRoot, communityName string) error {
@@ -178,20 +123,8 @@ func runDiscussionPost(ctx context.Context, args []string, output io.Writer, sta
 	if *body == "" {
 		return validationErr("--body is required")
 	}
-	key := *idempotencyKey
-	if key == "" {
-		var err error
-		key, err = newIdempotencyKey()
-		if err != nil {
-			return err
-		}
-	}
-	target, err := connection.Load(stateRoot, communityName, fs.Arg(0))
-	if err != nil {
-		return err
-	}
-	message, replayed, err := communityclient.New(nil).Post(ctx, target, communityclient.PostInput{
-		IdempotencyKey: key,
+	result, err := (&discussionapp.Service{StateRoot: stateRoot, CommunityName: communityName}).Post(ctx, fs.Arg(0), communityclient.PostInput{
+		IdempotencyKey: *idempotencyKey,
 		Body:           *body,
 		ReplyTo:        *replyTo,
 	})
@@ -199,9 +132,9 @@ func runDiscussionPost(ctx context.Context, args []string, output io.Writer, sta
 		return err
 	}
 	if *emitJSON {
-		return writeCommandJSON(output, map[string]any{"message": message, "idempotency_key": key, "replayed": replayed})
+		return writeCommandJSON(output, result)
 	}
-	fmt.Fprintf(output, "%d | %s | %s\n", message.Sequence, message.Author, message.Body)
+	fmt.Fprintf(output, "%d | %s | %s\n", result.Message.Sequence, result.Message.Author, result.Message.Body)
 	return nil
 }
 
@@ -221,11 +154,7 @@ func runDiscussionRead(ctx context.Context, args []string, output io.Writer, sta
 	if *after < 0 || *limit < 1 || *limit > discussion.MaxReadLimit || *wait < 0 || *wait > 25*time.Second {
 		return validationErr("invalid --after, --limit, or --wait")
 	}
-	target, err := connection.Load(stateRoot, communityName, fs.Arg(0))
-	if err != nil {
-		return err
-	}
-	result, err := communityclient.New(nil).Read(ctx, target, communityclient.ReadOptions{
+	result, err := (&discussionapp.Service{StateRoot: stateRoot, CommunityName: communityName}).Read(ctx, fs.Arg(0), communityclient.ReadOptions{
 		AfterSequence: *after,
 		Limit:         *limit,
 		Wait:          *wait,
@@ -252,11 +181,7 @@ func runDiscussionEnd(ctx context.Context, args []string, output io.Writer, stat
 	if fs.NArg() != 1 {
 		return usageErr("discussion end requires one connection name")
 	}
-	target, err := connection.Load(stateRoot, communityName, fs.Arg(0))
-	if err != nil {
-		return err
-	}
-	ended, err := communityclient.New(nil).End(ctx, target)
+	ended, err := (&discussionapp.Service{StateRoot: stateRoot, CommunityName: communityName}).End(ctx, fs.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -333,14 +258,6 @@ func extractDiscussionWorkspace(args []string) (string, []string, error) {
 		remaining = append(remaining, argument)
 	}
 	return workspace, remaining, nil
-}
-
-func newIdempotencyKey() (string, error) {
-	id, err := ulid.New(ulid.Timestamp(time.Now().UTC()), rand.Reader)
-	if err != nil {
-		return "", fmt.Errorf("generate idempotency key: %w", err)
-	}
-	return "cli-" + id.String(), nil
 }
 
 func writeCommandJSON(output io.Writer, value any) error {
