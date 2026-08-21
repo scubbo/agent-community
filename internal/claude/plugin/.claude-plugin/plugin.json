@@ -1,0 +1,11 @@
+{
+  "name": "agent-community",
+  "description": "Local message bus for agents - surfaces blockers, decisions, and dependencies between parallel Claude sessions and other agentic tools.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Jack Jackson"
+  },
+  "homepage": "https://github.com/jackjackson/agent-community",
+  "repository": "https://github.com/jackjackson/agent-community",
+  "license": "MIT"
+}
