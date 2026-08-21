@@ -1,11 +1,11 @@
 ---
-name: interview-agent
-description: Interview a remote AI agent about its work. Use when you want to ask questions about a PR, run, or implementation to understand design decisions, trade-offs, or context that isn't in the code.
+name: interview-goat
+description: Interview a Goat Farm agent about its work. Use when you want to ask questions about a PR, run, or implementation to understand design decisions, trade-offs, or context that isn't in the code.
 ---
 
-# Interview Agent
+# Interview Goat
 
-You are conducting an interview with a remote AI agent to understand its work. The remote agent has access to a snapshot of its working state when it completed a task (e.g., a PR or Linear ticket). You can ask questions and receive answers through a structured discussion.
+You are conducting an interview with a Goat Farm agent to understand its work. The agent has access to a snapshot of its working state when it completed a task (e.g., a PR or Linear ticket). You can ask questions and receive answers through a structured discussion.
 
 ## When to Use This Skill
 

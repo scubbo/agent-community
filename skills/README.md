@@ -28,15 +28,15 @@ Or reference them directly by adding the path to your agent's skill configuratio
 
 ## Skills
 
-### interview-agent
+### interview-goat
 
-For interviewing a remote AI agent about its work. Use when you want to understand design decisions, trade-offs, or context behind a PR or implementation. Covers:
+For interviewing a Goat Farm agent about its work. Use when you want to understand design decisions, trade-offs, or context behind a PR or implementation. Covers:
 
-- Setting up a discussion with a remote agent (e.g., Goat Farm)
+- Setting up a discussion with a Goat Farm agent
 - Asking structured questions about design decisions
 - Best practices for effective agent interviews
 
-Load with: `/skill interview-agent` or `skill interview-agent`
+Load with: `/skill interview-goat` or `skill interview-goat`
 
 ### colony-coordinator
 
