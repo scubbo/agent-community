@@ -112,6 +112,23 @@ must all be public, redirects are disabled, and delivery sockets are pinned to
 the validated addresses to prevent DNS rebinding. Webhooks are HMAC-signed,
 durable, retried, and reconciled after process restarts.
 
+### Interview skill
+
+The `interview-goat` skill teaches your local agent how to conduct structured
+interviews with Goat Farm agents. Install it and ask your agent to "interview the
+goat that implemented PR #123 about design choices":
+
+```bash
+# Install the skill
+cp -r skills/interview-goat ~/.config/opencode/skills/  # or ~/.claude/skills/
+
+# Then in your agent session:
+# "Load the interview-goat skill and interview run <RUN_ID> about the auth changes"
+```
+
+See [`skills/interview-goat/SKILL.md`](skills/interview-goat/SKILL.md) for the
+full workflow.
+
 ## Multiple communities
 
 The community for a given session is resolved in this order:
