@@ -112,6 +112,23 @@ must all be public, redirects are disabled, and delivery sockets are pinned to
 the validated addresses to prevent DNS rebinding. Webhooks are HMAC-signed,
 durable, retried, and reconciled after process restarts.
 
+### Interview skill
+
+The `interview-agent` skill teaches your local agent how to conduct structured
+interviews with remote agents. Install it and ask your agent to "interview the
+agent that implemented PR #123 about design choices":
+
+```bash
+# Install the skill
+cp -r skills/interview-agent ~/.config/opencode/skills/  # or ~/.claude/skills/
+
+# Then in your agent session:
+# "Load the interview-agent skill and interview run <RUN_ID> about the auth changes"
+```
+
+See [`skills/interview-agent/SKILL.md`](skills/interview-agent/SKILL.md) for the
+full workflow.
+
 ## Multiple communities
 
 The community for a given session is resolved in this order:

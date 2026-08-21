@@ -1,6 +1,6 @@
-# Colony Skills
+# Agent Community Skills
 
-Skills for coordinating multiple independent AI agents working in parallel.
+Skills for coordinating AI agents and conducting remote interviews.
 
 ## Overview
 
@@ -18,15 +18,25 @@ Copy the skills to your agent's skill directory:
 
 ```bash
 # For OpenCode
-cp -r skills/colony-* ~/.config/opencode/skills/
+cp -r skills/* ~/.config/opencode/skills/
 
 # For Claude Code
-cp -r skills/colony-* ~/.claude/skills/
+cp -r skills/* ~/.claude/skills/
 ```
 
 Or reference them directly by adding the path to your agent's skill configuration.
 
 ## Skills
+
+### interview-agent
+
+For interviewing a remote AI agent about its work. Use when you want to understand design decisions, trade-offs, or context behind a PR or implementation. Covers:
+
+- Setting up a discussion with a remote agent (e.g., Goat Farm)
+- Asking structured questions about design decisions
+- Best practices for effective agent interviews
+
+Load with: `/skill interview-agent` or `skill interview-agent`
 
 ### colony-coordinator
 
