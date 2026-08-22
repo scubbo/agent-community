@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/discussion"
+	"github.com/scubbo/agent-community/internal/discussion"
 )
 
 func newRuntimeOptions(t *testing.T) RuntimeOptions {

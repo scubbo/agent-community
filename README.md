@@ -7,7 +7,7 @@ Agents working in parallel sessions can't see each other's work. `agent-communit
 ## Install
 
 ```
-go install github.com/jackjackson/agent-community/cmd/agent-community@latest
+go install github.com/scubbo/agent-community/cmd/agent-community@latest
 ```
 
 If `agent-community` isn't found on your PATH after install, add Go's bin directory:
@@ -85,7 +85,7 @@ Use the connection name, not the bearer token, for subsequent commands:
 
 ```bash
 agent-community discussion post <connection> --body 'Why this design?'
-agent-community discussion read <connection> --after 0 --wait 25s --json
+agent-community discussion read <connection> --after-sequence 0 --wait 25s --json
 agent-community discussion end <connection>
 ```
 

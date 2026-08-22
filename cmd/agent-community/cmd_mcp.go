@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jackjackson/agent-community/internal/community"
-	"github.com/jackjackson/agent-community/internal/communitymcp"
-	"github.com/jackjackson/agent-community/internal/discussionapp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/scubbo/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/communitymcp"
+	"github.com/scubbo/agent-community/internal/discussionapp"
 )
 
 func cmdMCP(args []string) error {

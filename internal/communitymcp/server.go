@@ -6,10 +6,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/communityclient"
-	"github.com/jackjackson/agent-community/internal/discussion"
-	"github.com/jackjackson/agent-community/internal/discussionapp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/scubbo/agent-community/internal/communityclient"
+	"github.com/scubbo/agent-community/internal/discussion"
+	"github.com/scubbo/agent-community/internal/discussionapp"
 )
 
 type CreateDiscussionInput struct {

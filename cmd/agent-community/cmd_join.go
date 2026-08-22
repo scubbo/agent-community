@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/jackjackson/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/community"
 )
 
 func cmdJoin(args []string) error {

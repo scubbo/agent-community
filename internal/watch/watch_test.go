@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/message"
+	"github.com/scubbo/agent-community/internal/message"
 )
 
 // syncBuffer is a thread-safe buffer with a "wait for content" primitive.

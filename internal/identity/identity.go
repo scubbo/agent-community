@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/community"
-	"github.com/jackjackson/agent-community/internal/message"
+	"github.com/scubbo/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/message"
 )
 
 // ErrNoIdentity is returned when the workspace has joined a community but

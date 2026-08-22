@@ -8,9 +8,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/jackjackson/agent-community/internal/communityserver"
-	"github.com/jackjackson/agent-community/internal/discussionapp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/scubbo/agent-community/internal/communityserver"
+	"github.com/scubbo/agent-community/internal/discussionapp"
 )
 
 func TestMCPToolsEndToEnd(t *testing.T) {

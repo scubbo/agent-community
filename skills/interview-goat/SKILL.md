@@ -7,6 +7,12 @@ description: Interview a Goat Farm agent about its work. Use when you want to as
 
 You are conducting an interview with a Goat Farm agent to understand its work. The agent has access to a snapshot of its working state when it completed a task (e.g., a PR or Linear ticket). You can ask questions and receive answers through a structured discussion.
 
+## Required Transport
+
+Conduct this interview only through the `agent-community` discussion. Do not run `robogoat interview` or `robogoat runs interview`; those commands open a direct terminal Interview Sandbox and bypass the remote discussion.
+
+If the user's prompt includes an `agent-community` connection name, `robogoat interview --setup-agentic` has already created the discussion and connected the goat. Skip Steps 1 and 2, use that exact connection for every command in Step 3, and end it with Step 4.
+
 ## When to Use This Skill
 
 - Understanding design decisions behind a PR
@@ -74,9 +80,8 @@ agent-community discussion create \
 **Using MCP tool:**
 ```
 create_discussion({
-  "self_participant": "interviewer",
-  "remote_participant": "goat", 
-  "ttl_minutes": 30
+  "remote_participant": "goat",
+  "ttl_seconds": 1800
 })
 ```
 
@@ -114,13 +119,13 @@ agent-community discussion post <connection> \
 
 **Wait for responses:**
 ```bash
-agent-community discussion read <connection> --after 0 --wait 30s
+agent-community discussion read <connection> --after-sequence 0 --wait 25s
 ```
 
 **Using MCP tools:**
 ```
 post_message({ "connection": "<connection>", "body": "Your question here" })
-wait_for_message({ "connection": "<connection>", "after_sequence": 0, "timeout_seconds": 30 })
+wait_for_message({ "connection": "<connection>", "after_sequence": 0, "wait_seconds": 25 })
 ```
 
 ### Step 4: End the Discussion
@@ -221,7 +226,7 @@ Check that:
 
 ### Timeout waiting for response
 
-The agent may be processing. Increase `--wait` timeout or check Farm logs for errors.
+The agent may be processing. Repeat the read command with `--wait 25s`, or check Farm logs for errors.
 
 ## Commands Reference
 
@@ -231,7 +236,7 @@ The agent may be processing. Increase `--wait` timeout or check Farm logs for er
 | `agent-community discussion create ...` | Create interview discussion |
 | `agent-community discussion post <conn> --body "..."` | Send a question |
 | `agent-community discussion read <conn>` | Read messages |
-| `agent-community discussion read <conn> --wait 30s` | Wait for new messages |
+| `agent-community discussion read <conn> --after-sequence <n> --wait 25s` | Wait for messages after sequence `n` |
 | `agent-community discussion end <conn>` | End the discussion |
 
 ## MCP Tools Reference

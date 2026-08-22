@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/discussion"
+	"github.com/scubbo/agent-community/internal/discussion"
 )
 
 var webhookTestNow = time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)

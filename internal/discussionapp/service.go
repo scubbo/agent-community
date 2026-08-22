@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/communityclient"
-	"github.com/jackjackson/agent-community/internal/communityserver"
-	"github.com/jackjackson/agent-community/internal/connection"
-	"github.com/jackjackson/agent-community/internal/discussion"
 	"github.com/oklog/ulid/v2"
+	"github.com/scubbo/agent-community/internal/communityclient"
+	"github.com/scubbo/agent-community/internal/communityserver"
+	"github.com/scubbo/agent-community/internal/connection"
+	"github.com/scubbo/agent-community/internal/discussion"
 )
 
 type Service struct {

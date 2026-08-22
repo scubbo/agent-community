@@ -5,8 +5,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/jackjackson/agent-community/internal/community"
-	"github.com/jackjackson/agent-community/internal/identity"
+	"github.com/scubbo/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/identity"
 )
 
 func cmdClaim(args []string) error {

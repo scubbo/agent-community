@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jackjackson/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/community"
 )
 
 // resolveWorkspace returns the directory considered "the workspace" for
