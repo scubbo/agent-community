@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/jackjackson/agent-community/templates"
+	"github.com/scubbo/agent-community/templates"
 )
 
 const (

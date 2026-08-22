@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jackjackson/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/community"
 )
 
 func setupCommunity(t *testing.T) (communityRoot string) {

@@ -1,4 +1,4 @@
-module github.com/jackjackson/agent-community
+module github.com/scubbo/agent-community
 
 go 1.26
 

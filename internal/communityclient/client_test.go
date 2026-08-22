@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/communityserver"
-	"github.com/jackjackson/agent-community/internal/connection"
-	"github.com/jackjackson/agent-community/internal/discussion"
+	"github.com/scubbo/agent-community/internal/communityserver"
+	"github.com/scubbo/agent-community/internal/connection"
+	"github.com/scubbo/agent-community/internal/discussion"
 )
 
 func newClientFixture(t *testing.T) (*Client, *connection.Connection, func()) {

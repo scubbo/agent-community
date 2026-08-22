@@ -22,7 +22,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/jackjackson/agent-community/internal/message"
+	"github.com/scubbo/agent-community/internal/message"
 )
 
 // Options configures Run.

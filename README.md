@@ -7,7 +7,7 @@ Agents working in parallel sessions can't see each other's work. `agent-communit
 ## Install
 
 ```
-go install github.com/jackjackson/agent-community/cmd/agent-community@latest
+go install github.com/scubbo/agent-community/cmd/agent-community@latest
 ```
 
 If `agent-community` isn't found on your PATH after install, add Go's bin directory:

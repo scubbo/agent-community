@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/community"
-	"github.com/jackjackson/agent-community/internal/message"
+	"github.com/scubbo/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/message"
 )
 
 func cmdRead(args []string) error {

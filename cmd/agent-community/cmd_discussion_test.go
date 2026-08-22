@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/community"
-	"github.com/jackjackson/agent-community/internal/communityserver"
-	"github.com/jackjackson/agent-community/internal/connection"
+	"github.com/scubbo/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/communityserver"
+	"github.com/scubbo/agent-community/internal/connection"
 )
 
 type discussionCLIFixture struct {

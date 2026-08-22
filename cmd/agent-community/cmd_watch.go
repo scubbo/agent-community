@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/community"
-	"github.com/jackjackson/agent-community/internal/identity"
-	"github.com/jackjackson/agent-community/internal/watch"
+	"github.com/scubbo/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/identity"
+	"github.com/scubbo/agent-community/internal/watch"
 )
 
 func cmdWatch(args []string) error {

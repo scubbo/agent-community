@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackjackson/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/community"
 )
 
 func cmdInit(args []string) error {

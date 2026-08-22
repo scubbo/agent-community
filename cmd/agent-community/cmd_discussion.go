@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/community"
-	"github.com/jackjackson/agent-community/internal/communityclient"
-	"github.com/jackjackson/agent-community/internal/discussion"
-	"github.com/jackjackson/agent-community/internal/discussionapp"
+	"github.com/scubbo/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/communityclient"
+	"github.com/scubbo/agent-community/internal/discussion"
+	"github.com/scubbo/agent-community/internal/discussionapp"
 )
 
 func cmdDiscussion(args []string) error {

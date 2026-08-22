@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/jackjackson/agent-community/internal/claude"
+	"github.com/scubbo/agent-community/internal/claude"
 )
 
 func cmdClaudeInstall(args []string) error {

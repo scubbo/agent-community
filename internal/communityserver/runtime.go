@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackjackson/agent-community/internal/discussion"
 	"github.com/oklog/ulid/v2"
+	"github.com/scubbo/agent-community/internal/discussion"
 	"golang.org/x/sys/unix"
 )
 

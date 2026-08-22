@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackjackson/agent-community/internal/community"
-	"github.com/jackjackson/agent-community/internal/identity"
-	"github.com/jackjackson/agent-community/internal/message"
+	"github.com/scubbo/agent-community/internal/community"
+	"github.com/scubbo/agent-community/internal/identity"
+	"github.com/scubbo/agent-community/internal/message"
 )
 
 // validMessageTypes lists the recognized colony message types for --type flag.
