@@ -592,7 +592,7 @@ agent-community discussion create \
 agent-community discussion post <connection-name> \
   --body "Why did you choose this approach?"
 
-agent-community discussion read <connection-name> --after 0 --json
+agent-community discussion read <connection-name> --after-sequence 0 --json
 agent-community discussion watch <connection-name>
 agent-community discussion end <connection-name>
 ```

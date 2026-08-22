@@ -140,7 +140,7 @@ func runDiscussionPost(ctx context.Context, args []string, output io.Writer, sta
 
 func runDiscussionRead(ctx context.Context, args []string, output io.Writer, stateRoot, communityName string) error {
 	fs := flag.NewFlagSet("discussion read", flag.ContinueOnError)
-	after := fs.Int("after", 0, "Read messages after this sequence.")
+	afterSequence := fs.Int("after-sequence", 0, "Read messages after this sequence.")
 	limit := fs.Int("limit", 50, "Maximum messages, 1-100.")
 	wait := fs.Duration("wait", 0, "Long-poll duration, up to 25s.")
 	emitJSON := fs.Bool("json", false, "Emit JSON.")
@@ -151,11 +151,11 @@ func runDiscussionRead(ctx context.Context, args []string, output io.Writer, sta
 	if fs.NArg() != 1 {
 		return usageErr("discussion read requires one connection name")
 	}
-	if *after < 0 || *limit < 1 || *limit > discussion.MaxReadLimit || *wait < 0 || *wait > 25*time.Second {
-		return validationErr("invalid --after, --limit, or --wait")
+	if *afterSequence < 0 || *limit < 1 || *limit > discussion.MaxReadLimit || *wait < 0 || *wait > 25*time.Second {
+		return validationErr("invalid --after-sequence, --limit, or --wait")
 	}
 	result, err := (&discussionapp.Service{StateRoot: stateRoot, CommunityName: communityName}).Read(ctx, fs.Arg(0), communityclient.ReadOptions{
-		AfterSequence: *after,
+		AfterSequence: *afterSequence,
 		Limit:         *limit,
 		Wait:          *wait,
 	})

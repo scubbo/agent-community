@@ -85,7 +85,7 @@ Use the connection name, not the bearer token, for subsequent commands:
 
 ```bash
 agent-community discussion post <connection> --body 'Why this design?'
-agent-community discussion read <connection> --after 0 --wait 25s --json
+agent-community discussion read <connection> --after-sequence 0 --wait 25s --json
 agent-community discussion end <connection>
 ```
 

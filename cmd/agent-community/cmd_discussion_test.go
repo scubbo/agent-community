@@ -182,7 +182,7 @@ func TestDiscussionPostReadAndEnd(t *testing.T) {
 		t.Errorf("unexpected post: %#v", posted)
 	}
 
-	readJSON, err := fixture.run(t, "read", created.Connection, "--after", "0", "--limit", "50", "--json")
+	readJSON, err := fixture.run(t, "read", created.Connection, "--after-sequence", "0", "--limit", "50", "--json")
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
